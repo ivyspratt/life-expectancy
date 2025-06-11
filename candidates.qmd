@@ -5,11 +5,75 @@ format: html
 execute: 
   echo: false
 ---
-Being a government official is demanding. Using the data from 1000+ governors in the United States, we attempt to create a model predicting life span of future candidates.
 
 ```{r}
 #| message: false
-
+#| warning: false
 library(tidyverse)
 library(primer.data)
+library(tidymodels)
+library(broom)
+library(knitr)
+library(ggplot2)
+library(marginaleffects)
+
+# Fit the linear model and tidy results
+fit_years <- linear_reg(engine = "lm") |> 
+  fit(lived_after ~ sex + election_age + sex*election_age, data = governors) |> 
+  tidy(conf.int = TRUE)
+
+# Fit lm model for predictions
+fit <- lm(lived_after ~ sex * election_age, data = governors)
+
+# Prepare prediction grid
+min_age <- min(governors$election_age, na.rm = TRUE)
+max_age <- max(governors$election_age, na.rm = TRUE)
+
+pred_grid <- expand.grid(
+  election_age = seq(min_age, max_age, length.out = 100),
+  sex = c("Female", "Male")
+)
+
+pred_grid <- pred_grid %>%
+  mutate(
+    pred = predict(fit, newdata = pred_grid, interval = "confidence")[, "fit"],
+    conf_low = predict(fit, newdata = pred_grid, interval = "confidence")[, "lwr"],
+    conf_high = predict(fit, newdata = pred_grid, interval = "confidence")[, "upr"]
+  )
+
+# Plot predicted life expectancy
+ggplot(pred_grid, aes(x = election_age, y = pred, color = sex, fill = sex)) +
+  geom_line(size = 1.2) +
+  geom_ribbon(aes(ymin = conf_low, ymax = conf_high), alpha = 0.2, color = NA) +
+  labs(
+    title = "Predicted Life Expectancy after Election by Age and Sex",
+    subtitle = "Male candidates lose more years of life expectancy with increasing election age compared to female candidates.",
+    caption = "Data source: Barfort et al. (2020), 'Longevity Returns to Political Office'",
+    x = "Age at Election (years)",
+    y = "Predicted Years Lived After Election"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12, color = "gray40"),
+    plot.caption = element_text(size = 10, color = "gray60"),
+    axis.title = element_text(size = 12)
+  )
+```
+
+Being a government official is demanding. Using the data from 1000+ governors in the United States, we attempt to create a model predicting life span of future candidates. Since the data only includes the governor position, it may be not as relevant to other positions in government. A 50-year-old male political candidate can expect to live about 30 years after the election, plus-or-minus about 1 year.
+
+## Fitted Model Structure
+
+The model we are fitting can be expressed as:
+
+$$
+\text{lived\_after} = \beta_0 + \beta_1 \cdot \text{sex} + \beta_2 \cdot \text{election\_age} + \beta_3 \cdot (\text{sex} \times \text{election\_age}) + \epsilon
+$$
+
+```{r}
+kable(
+  fit_years, 
+  caption = "Table 1: Regression Model Results (Data Source: Barfort et al., 2020, 'Longevity Returns to Political Office')"
+)
 ```
