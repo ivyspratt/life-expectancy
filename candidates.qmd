@@ -1,0 +1,15 @@
+---
+title: "Life Expectancy for Political Candidates"
+author: "Ivy Spratt"
+format: html
+execute: 
+  echo: false
+---
+Being a government official is demanding. Using the data from 1000+ governors in the United States, we attempt to create a model predicting life span of future candidates.
+
+```{r}
+#| message: false
+
+library(tidyverse)
+library(primer.data)
+```
